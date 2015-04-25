@@ -1,5 +1,7 @@
 #include <iostream>
 #include <stdio.h>
+#include <sys/types.h>
+#include <arpa/inet.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
@@ -7,6 +9,22 @@
 #include <netinet/in.h>
 
 using namespace std;
+
+/*void ReadXBytes(int socket, unsigned int x, void* buffer)
+{
+	int bytesRead = 0;
+	int result;
+	while (bytesRead < x)
+	{
+		result = read(socket, buffer + bytesRead, x - bytesRead);
+		if (result < 1 )
+		{
+			// Throw your error.
+		}
+
+		bytesRead += result;
+	}
+}*/
 
 int main(int argc, char *argv[])
 {
@@ -43,39 +61,48 @@ int main(int argc, char *argv[])
 		cout << "Could not bind socket." << endl;
 		exit(1);
 	}
+	cout << "starting to listen..." << endl;
 	// Socket binding success, now we enter the listen loop.
 	listen(sock,10); // Conga line!
+	cout << "finished listening!" << endl;
 
 	// We now have a message.
 	client_len = sizeof(cli_addr);
+	cout << "Accepcting socket." << endl;
 	newsock = accept(sock, (struct sockaddr *) &cli_addr, &client_len);
-	if (newsock < 0) {
+	if (newsock < 0)
+	{
 		cout << "Could not accecpt." << endl;
 		exit(1);
 	}
-	msg_len = read(newsock,msg,255);
+	cout << "Accecpted socket." << endl;
+
+	printf("accepted a connection from client IP %s port %d \n",inet_ntoa(cli_addr.sin_addr),ntohs(serv_addr.sin_port));
+
+	send(newsock,"\n",strlen("\n"),0); // Let the client know we're listening
+
+	cout << "starting to read." << endl;
+	msg_len = read(newsock,msg,255); // This should be a USER request
+	cout << "Done reading." << endl;
+	send(newsock,"230\n\n", strlen("230\n\n"), 0); // Accecpt all USER logins.
 	if (msg_len < 0)
 	{
 		cout << "Could not read from socket." << endl;
 		exit(1);
 	}
 	// Enter read loop.
-	while (strcmp(msg,"QUIT\n") != 0) {
-		// Reply to the message
-		write(newsock, "I got your message, brah", 24);
-
+	while (strncmp(msg,"QUIT", 4) != 0) {
+		
 		// Print out message for debugging purposes.
-		cout << msg;
-		memset(&msg[0], 0, sizeof(msg)); // Need to init to 0 so msg plays nice with strcmp
+		cout << strncmp(msg,"QUIT", 4) << ": " << "msg:" <<  msg;
 
 		// Wait for and read next message.
-		listen(sock,10);
 		client_len = sizeof(cli_addr);
-		newsock = accept(sock, (struct sockaddr *) &cli_addr, &client_len);
 		if (newsock < 0) {
 			cout << "Could not accecpt." << endl;
 			exit(1);
 		}
+		memset(&msg[0], 0, sizeof(msg)); // Need to init to 0 so msg plays nice with strcmp
 		msg_len = read(newsock,msg,255);
 		if (msg_len < 0)
 		{
