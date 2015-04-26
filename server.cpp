@@ -7,6 +7,7 @@
 #include <unistd.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
+#include <netdb.h>
 
 using namespace std;
 
@@ -34,7 +35,7 @@ int main(int argc, char *argv[])
 		exit(1);
 	}
 
-	int sock, newsock, port, msg_len;
+	int sock, newsock, client_sock, port, msg_len;
 	char msg[256];
 	memset(&msg[0], 0, sizeof(msg));
 	sock = socket(AF_INET, SOCK_STREAM, 0); // Open a socket
@@ -48,7 +49,8 @@ int main(int argc, char *argv[])
 
 	// Set up server socket options
 	socklen_t client_len;
-	struct sockaddr_in serv_addr, cli_addr;
+	struct sockaddr_in serv_addr, cli_addr, data_addr;
+	struct hostent *client;
 	bzero((char *) &serv_addr, sizeof(serv_addr));
 	// Voodoo lives here
 	serv_addr.sin_family = AF_INET;
@@ -79,37 +81,161 @@ int main(int argc, char *argv[])
 
 	printf("accepted a connection from client IP %s port %d \n",inet_ntoa(cli_addr.sin_addr),ntohs(serv_addr.sin_port));
 
-	send(newsock,"\n",strlen("\n"),0); // Let the client know we're listening
+	int return_status;
+	return_status = 220;
+	return_status = htons(return_status);
+	send(newsock, "\n", sizeof("\n"), 0); // Magic.
 
-	cout << "starting to read." << endl;
-	msg_len = read(newsock,msg,255); // This should be a USER request
-	cout << "Done reading." << endl;
-	send(newsock,"230\n\n", strlen("230\n\n"), 0); // Accecpt all USER logins.
-	if (msg_len < 0)
-	{
-		cout << "Could not read from socket." << endl;
-		exit(1);
-	}
+
 	// Enter read loop.
-	while (strncmp(msg,"QUIT", 4) != 0) {
-		
-		// Print out message for debugging purposes.
-		cout << strncmp(msg,"QUIT", 4) << ": " << "msg:" <<  msg;
-
-		// Wait for and read next message.
-		client_len = sizeof(cli_addr);
-		if (newsock < 0) {
-			cout << "Could not accecpt." << endl;
-			exit(1);
-		}
+	do {
+		// Wait for a new message
+		/*cout << "Listening..." << endl;
+		listen(newsock, 5);
+		cout << "Heard something!" << endl;*/
+		// We have a new message
+		cout << "reading message" << endl;
 		memset(&msg[0], 0, sizeof(msg)); // Need to init to 0 so msg plays nice with strcmp
-		msg_len = read(newsock,msg,255);
+		msg_len = recv(newsock,msg,255,0);
+		cout << "Finished reading message." << endl;
+		cout << "msg: " << msg;
 		if (msg_len < 0)
 		{
 			cout << "Could not read from socket." << endl;
 			exit(1);
 		}
-	}
+		
+		if (strncmp(msg, "USER", 4) == 0) // Doesn't work..
+		{
+			return_status = 220; // Accecpt all USER logins
+			return_status = htons(return_status);
+			//send(newsock, "FTP 331\n", sizeof("FTP 331\n"), 0);
+			send(newsock, (char *)&return_status, sizeof(return_status), 0);
+			send(newsock, "\n", sizeof("\n"), 0);
+			//send(newsock, "Hai", sizeof("Hai"), 0);
+			cout << "Sent 331" << endl;
+			// Send welcome message
+			send(newsock, "Welcome to Elysium!", sizeof("Welcome to Elysium!"), 0);
+
+		}
+		else if (strncmp(msg, "SYST", 4) == 0)
+		{
+			cout << "Returning system type." << endl;
+			return_status = 215;
+			return_status = htons(return_status);
+			send(newsock, (char *)&return_status, sizeof(return_status), 0);
+			send(newsock, "Custom\n", sizeof("Custom\n"), 0);
+		}
+		else if (strncmp(msg, "CWD", 3) == 0)
+		{
+			string arg = "";
+			for (int i = 4; i < strlen(msg) - 2; i++)
+			{
+				arg += msg[i];
+			}
+			cout << "CWD: " << arg << endl;
+			if (chdir(arg.c_str()) == 0) send(newsock, "250 CD Successful\n", sizeof("250 CD Successful\n"), 0);
+			else send(newsock, "550 Failed to change directory.\n", sizeof("550 Failed to change directory.\n"), 0);
+		}
+		else if (strncmp(msg, "PWD", 3) == 0)
+		{
+			char cwd[1024];
+			bzero(cwd, 1024);
+			getcwd(cwd, 1024);
+			send(newsock, cwd, sizeof(cwd), 0);
+			send(newsock, "\n", sizeof("\n"), 0);
+		}
+		else if (strncmp(msg, "PORT", 4) == 0)
+		{
+			send(newsock, "504 Command not implemented for that parameter\n", sizeof("504 Command not implemented for that parameter\n"), 0);
+			// Interpret the ip and port
+			string arg = "",
+				   ip_str = "",
+				   port_str = "";
+			int data_port;
+			for (int i = 5; i < strlen(msg); i++)
+			{
+				arg += msg[i];
+			}
+			int commas = 0, j = 0;
+			
+			while (commas < 4)
+			{
+				if (arg[j] == ','){
+					commas++;
+					if (commas > 3) {
+						j++;
+						break;
+					}
+					ip_str += ".";
+				}
+				else
+				{
+					ip_str += arg[j];
+				}
+				j++;
+			}
+			while (arg[j] != ',')
+			{
+				port_str += arg[j];
+				j++;
+			}
+			j++;
+			data_port = 256 * atoi(port_str.c_str());
+			port_str = "";
+			while (j < arg.length()) {
+				port_str += arg[j];
+				j++;
+			}
+			data_port += atoi(port_str.c_str());
+			cout << data_port << endl;
+
+			// Establish data connection
+			client_sock = socket(AF_INET, SOCK_STREAM, 0);
+			if (client_sock < 0)
+			{
+				cout << "Could not open client socket." << endl;
+				exit(1);
+			}
+			client = gethostbyname(ip_str.c_str());
+			if (client == NULL)
+			{
+				cout << "Client doesn't exist. Somehow." << endl;
+				exit(1);
+			}
+			bzero((char *) &data_addr, sizeof(data_addr));
+			data_addr.sin_family = AF_INET;
+			bcopy((char *)client->h_addr,
+			      (char *)&data_addr.sin_addr.s_addr,
+			      client->h_length);
+			data_addr.sin_port = htons(data_port);
+			if (connect(client_sock, (struct sockaddr *) &data_addr, sizeof(data_addr)) <0)
+			{
+				cout << "Couldn't connect to the client." << endl;
+			}
+			cout << "Connected" << endl;
+
+			return_status = 150;
+			return_status = htons(return_status);
+			//send(newsock, (char *)&return_status, sizeof(return_status), 0);
+			//send(newsock, "150\r\n", sizeof("150\n"), 0);
+			send(newsock, "Testing\r\n", sizeof("Testing\r\n"), 0);
+			send(newsock, "Testing2\n", sizeof("Testing2\n"), 0);
+			cout << "Sent confirmation." << endl;
+
+
+			cout << "reading message" << endl;
+			memset(&msg[0], 0, sizeof(msg)); // Need to init to 0 so msg plays nice with strcmp
+			msg_len = recv(newsock,msg,255,0);
+			cout << "Done reading message" << endl;
+			cout << "PORT msg: " << msg;
+		}
+		else
+		{
+			cout << "Unsupported" << endl;
+			send(newsock, "202", strlen("202"), 0); // Don't support
+		}
+	} while (strncmp(msg,"QUIT", 4) != 0);
 	close(sock);
 	close(newsock);
 }
