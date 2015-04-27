@@ -209,10 +209,19 @@ int main(int argc, char *argv[])
 		else if (strncmp(msg, "LIST", 4) == 0)
 		{
 			send(newsock, "150 Sending info\n", sizeof("150 Sending info\n"), 0);
-			send(client_sock, "Testing1", sizeof("Testing1"), 0);
-			send(client_sock, "Testing2\n", sizeof("Testing2\n"), 0);
-			send(newsock, "251 Sending info\n", sizeof("251 Sending info\n"), 0);
+			send(client_sock, "Testing1\r\n", sizeof("Testing1\r\n"), 0);
+			send(client_sock, "Testing2\r\n", sizeof("Testing2\r\n"), 0);
+			send(client_sock, "Testing3\n\n", sizeof("Testing3\n\n"), 0);
 			send(newsock, "226 LIST done\n", sizeof("226 LIST done\n"), 0);
+		}
+		else if (strncmp(msg, "DELE", 4) == 0)
+		{
+			string arg = "";
+			for (int i = 5; i < strlen(msg) - 2; i++) {
+				arg += msg[i];
+			}
+			if (remove(arg.c_str()) == 0) send(newsock, "250 File deleted\n", sizeof("250 File deleted\n"), 0);
+			else send(newsock, "553 could not delete file\n", sizeof("553 could not delete file\n"), 0);
 		}
 		else if (strncmp(msg, "QUIT", 4) == 0)
 		{
