@@ -11,22 +11,6 @@
 
 using namespace std;
 
-/*void ReadXBytes(int socket, unsigned int x, void* buffer)
-{
-	int bytesRead = 0;
-	int result;
-	while (bytesRead < x)
-	{
-		result = read(socket, buffer + bytesRead, x - bytesRead);
-		if (result < 1 )
-		{
-			// Throw your error.
-		}
-
-		bytesRead += result;
-	}
-}*/
-
 int main(int argc, char *argv[])
 {
 	if (argc < 2)
@@ -126,6 +110,11 @@ int main(int argc, char *argv[])
 			send(newsock, (char *)&return_status, sizeof(return_status), 0);
 			send(newsock, "Custom\n", sizeof("Custom\n"), 0);
 		}
+		else if (strncmp(msg, "CDUP", 4) == 0)
+		{
+			if (chdir("..") == 0) send(newsock, "250 CDUP Successful\n", sizeof("250 CDUP Successful\n"), 0);
+			else send(newsock, "550 Failed CDUP\n", sizeof("550 Failed CDUP\n"), 0);
+		}
 		else if (strncmp(msg, "CWD", 3) == 0)
 		{
 			string arg = "";
@@ -147,7 +136,6 @@ int main(int argc, char *argv[])
 		}
 		else if (strncmp(msg, "PORT", 4) == 0)
 		{
-			send(newsock, "504 Command not implemented for that parameter\n", sizeof("504 Command not implemented for that parameter\n"), 0);
 			// Interpret the ip and port
 			string arg = "",
 				   ip_str = "",
@@ -215,20 +203,20 @@ int main(int argc, char *argv[])
 			}
 			cout << "Connected" << endl;
 
-			return_status = 150;
-			return_status = htons(return_status);
-			//send(newsock, (char *)&return_status, sizeof(return_status), 0);
-			//send(newsock, "150\r\n", sizeof("150\n"), 0);
-			send(newsock, "Testing\r\n", sizeof("Testing\r\n"), 0);
-			send(newsock, "Testing2\n", sizeof("Testing2\n"), 0);
-			cout << "Sent confirmation." << endl;
+			send(newsock, "200 PORT Successful\n", sizeof("200 PORT Successful\n"), 0);
 
-
-			cout << "reading message" << endl;
-			memset(&msg[0], 0, sizeof(msg)); // Need to init to 0 so msg plays nice with strcmp
-			msg_len = recv(newsock,msg,255,0);
-			cout << "Done reading message" << endl;
-			cout << "PORT msg: " << msg;
+		}
+		else if (strncmp(msg, "LIST", 4) == 0)
+		{
+			send(newsock, "150 Sending info\n", sizeof("150 Sending info\n"), 0);
+			send(client_sock, "Testing1", sizeof("Testing1"), 0);
+			send(client_sock, "Testing2\n", sizeof("Testing2\n"), 0);
+			send(newsock, "251 Sending info\n", sizeof("251 Sending info\n"), 0);
+			send(newsock, "226 LIST done\n", sizeof("226 LIST done\n"), 0);
+		}
+		else if (strncmp(msg, "QUIT", 4) == 0)
+		{
+			break;
 		}
 		else
 		{
