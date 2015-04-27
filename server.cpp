@@ -203,16 +203,17 @@ int main(int argc, char *argv[])
 			}
 			cout << "Connected" << endl;
 
-			send(newsock, "200 PORT Successful\n", sizeof("200 PORT Successful\n"), 0);
+			send(newsock, "200 PORT Successful\r\n", sizeof("200 PORT Successful\n"), 0);
 
 		}
 		else if (strncmp(msg, "LIST", 4) == 0)
 		{
-			send(newsock, "150 Sending info\n", sizeof("150 Sending info\n"), 0);
+			send(newsock, "150 Sending info\r\n", sizeof("150 Sending info\r\n"), 0);
 			send(client_sock, "Testing1\r\n", sizeof("Testing1\r\n"), 0);
 			send(client_sock, "Testing2\r\n", sizeof("Testing2\r\n"), 0);
-			send(client_sock, "Testing3\n\n", sizeof("Testing3\n\n"), 0);
-			send(newsock, "226 LIST done\n", sizeof("226 LIST done\n"), 0);
+			send(client_sock, "Testing3\r\n", sizeof("Testing3\n\n"), 0);
+			close(client_sock);
+			send(newsock, "226 LIST done\r\n", sizeof("226 LIST done\r\n"), 0);
 		}
 		else if (strncmp(msg, "DELE", 4) == 0)
 		{
@@ -221,7 +222,7 @@ int main(int argc, char *argv[])
 				arg += msg[i];
 			}
 			if (remove(arg.c_str()) == 0) send(newsock, "250 File deleted\n", sizeof("250 File deleted\n"), 0);
-			else send(newsock, "553 could not delete file\n", sizeof("553 could not delete file\n"), 0);
+			else send(newsock, "553 could not delete file\r\n", sizeof("553 could not delete file\r\n"), 0);
 		}
 		else if (strncmp(msg, "QUIT", 4) == 0)
 		{
