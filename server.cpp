@@ -210,8 +210,8 @@ int main(int argc, char *argv[])
 		{
 			send(newsock, "150 Sending info\r\n", sizeof("150 Sending info\r\n"), 0);
 			send(client_sock, "Testing1\r\n", sizeof("Testing1\r\n"), 0);
-			send(client_sock, "Testing2\r\n", sizeof("Testing2\r\n"), 0);
-			send(client_sock, "Testing3\r\n", sizeof("Testing3\n\n"), 0);
+			send(client_sock, "Testing2\r", sizeof("Testing2\r"), 0);
+			send(client_sock, "Testing3\r", sizeof("Testing3\n"), 0);
 			close(client_sock);
 			send(newsock, "226 LIST done\r\n", sizeof("226 LIST done\r\n"), 0);
 		}
@@ -231,7 +231,7 @@ int main(int argc, char *argv[])
 		else
 		{
 			cout << "Unsupported" << endl;
-			send(newsock, "202", strlen("202"), 0); // Don't support
+			send(newsock, "200\r\n", strlen("200\r\n"), 0); // Don't support
 		}
 	} while (strncmp(msg,"QUIT", 4) != 0);
 	close(sock);
