@@ -9,6 +9,8 @@
 #include <netinet/in.h>
 #include <netdb.h>
 
+#include "functions.h"
+
 using namespace std;
 
 int main(int argc, char *argv[])
@@ -209,11 +211,23 @@ int main(int argc, char *argv[])
 		else if (strncmp(msg, "LIST", 4) == 0)
 		{
 			send(newsock, "150 Sending info\r\n", sizeof("150 Sending info\r\n"), 0);
-			send(client_sock, "Testing1\r\n", sizeof("Testing1\r\n"), 0);
-			send(client_sock, "Testing2\r", sizeof("Testing2\r"), 0);
-			send(client_sock, "Testing3\r", sizeof("Testing3\n"), 0);
+			ls(client_sock);
 			close(client_sock);
 			send(newsock, "226 LIST done\r\n", sizeof("226 LIST done\r\n"), 0);
+		}
+		else if (strncmp(msg, "STOR", 4) == 0)
+		{
+			send(newsock, "150 Ready to receive file\r\n", sizeof("150 Ready to receive file\r\n"), 0);
+			store(client_sock, msg);
+			close(client_sock);
+			send(newsock, "226 File received\r\n", sizeof("226 File received\r\n"), 0);
+		}
+		else if (strncmp(msg, "RETR", 4) == 0)
+		{
+			send(newsock, "150 Sending file\r\n", sizeof("150 Sending file\r\n"), 0);
+			retrieve(client_sock, msg);
+			close(client_sock);
+			send(newsock, "226 File sent\r\n", sizeof("226 File sent\r\n"), 0);
 		}
 		else if (strncmp(msg, "DELE", 4) == 0)
 		{

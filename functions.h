@@ -6,6 +6,7 @@
 #include <sys/socket.h>
 #include <unistd.h>
 #include <dirent.h>
+#include <fstream>
 
 using namespace std;
 
@@ -22,4 +23,43 @@ void ls(int client_sock)
 	}
 	closedir(dir_ptr);
 	cout << "Done sending directory!" << endl;
+}
+
+string parse_msg(string msg)
+{
+	int i = 0;
+	// Fast forward to the argument
+	while (i < msg.length() && msg[i] != ' ')
+	{
+		i++;
+	}
+	i++;
+	string arg = "";
+	for (; i < msg.length() - 2; i++)
+	{
+		arg += msg[i];
+	}
+	return arg;
+}
+
+// Write store and retrieve functions
+void store(int client_sock, string msg)
+{
+	string arg = parse_msg(msg);
+	cout << arg << endl;
+	FILE * file_ptr;
+	//file_ptr = fopen(arg.c_str(), "w");
+	file_ptr = fopen(arg.c_str(), "w");
+	uint8_t byte;
+	while (recv(client_sock, &byte, sizeof(byte), 0) != 0)
+	{
+		fwrite(&byte, sizeof(uint8_t), sizeof(byte), file_ptr);// << endl;
+	}
+	fclose(file_ptr); // Uber important to flush everything to disk
+}
+
+void retrieve(int client_sock, string msg)
+{
+	string arg = parse_msg(msg);
+	cout << arg << endl;
 }
