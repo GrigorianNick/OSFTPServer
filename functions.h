@@ -46,7 +46,6 @@ string parse_msg(string msg)
 void store(int client_sock, string msg)
 {
 	string arg = parse_msg(msg);
-	cout << arg << endl;
 	FILE * file_ptr;
 	//file_ptr = fopen(arg.c_str(), "w");
 	file_ptr = fopen(arg.c_str(), "w");
@@ -61,5 +60,12 @@ void store(int client_sock, string msg)
 void retrieve(int client_sock, string msg)
 {
 	string arg = parse_msg(msg);
-	cout << arg << endl;
+	FILE * file_ptr;
+	file_ptr = fopen(arg.c_str(), "r");
+	uint8_t byte;
+	while( fread(&byte, sizeof(uint8_t), sizeof(byte), file_ptr) != 0)
+	{
+		send(client_sock, &byte, sizeof(byte), 0);
+	}
+	fclose(file_ptr);
 }
