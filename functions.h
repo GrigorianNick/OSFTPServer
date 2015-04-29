@@ -14,7 +14,7 @@ void ls(int client_sock)
 {
 	DIR *dir_ptr;
 	dirent * dir_ent;
-	cout << "Starting to send directory!" << endl;
+	//cout << "Starting to send directory!" << endl;
 	dir_ptr = opendir(".");
 	while ((dir_ent = readdir(dir_ptr)) != NULL)
 	{
@@ -22,7 +22,7 @@ void ls(int client_sock)
 		send(client_sock, "\r\n", sizeof("\r\n") - 1, 0);
 	}
 	closedir(dir_ptr);
-	cout << "Done sending directory!" << endl;
+	//cout << "Done sending directory!" << endl;
 }
 
 string parse_msg(string msg)
@@ -48,7 +48,7 @@ void store(int client_sock, string msg)
 	string arg = parse_msg(msg);
 	FILE * file_ptr;
 	//file_ptr = fopen(arg.c_str(), "w");
-	file_ptr = fopen(arg.c_str(), "w");
+	file_ptr = fopen(arg.c_str(), "wb");
 	uint8_t byte;
 	while (recv(client_sock, &byte, sizeof(byte), 0) != 0)
 	{
@@ -61,11 +61,12 @@ void retrieve(int client_sock, string msg)
 {
 	string arg = parse_msg(msg);
 	FILE * file_ptr;
-	file_ptr = fopen(arg.c_str(), "r");
+	file_ptr = fopen(arg.c_str(), "rb");
 	uint8_t byte;
 	while( fread(&byte, sizeof(uint8_t), sizeof(byte), file_ptr) != 0)
 	{
 		send(client_sock, &byte, sizeof(byte), 0);
 	}
+	//send(client_sock, "\r\n", sizeof("\r\n"), 0);
 	fclose(file_ptr);
 }

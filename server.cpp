@@ -15,6 +15,7 @@ using namespace std;
 
 int main(int argc, char *argv[])
 {
+	bool binary_format = false;
 	if (argc < 2)
 	{
 		cout << "No port provided." << endl;
@@ -49,21 +50,21 @@ int main(int argc, char *argv[])
 		cout << "Could not bind socket." << endl;
 		exit(1);
 	}
-	cout << "starting to listen..." << endl;
+	//cout << "starting to listen..." << endl;
 	// Socket binding success, now we enter the listen loop.
 	listen(sock,10); // Conga line!
-	cout << "finished listening!" << endl;
+	//cout << "finished listening!" << endl;
 
 	// We now have a message.
 	client_len = sizeof(cli_addr);
-	cout << "Accepcting socket." << endl;
+	//cout << "Accepcting socket." << endl;
 	newsock = accept(sock, (struct sockaddr *) &cli_addr, &client_len);
 	if (newsock < 0)
 	{
 		cout << "Could not accecpt." << endl;
 		exit(1);
 	}
-	cout << "Accecpted socket." << endl;
+	//cout << "Accecpted socket." << endl;
 
 	printf("accepted a connection from client IP %s port %d \n",inet_ntoa(cli_addr.sin_addr),ntohs(serv_addr.sin_port));
 
@@ -80,11 +81,29 @@ int main(int argc, char *argv[])
 		listen(newsock, 5);
 		cout << "Heard something!" << endl;*/
 		// We have a new message
-		cout << "reading message" << endl;
+		//cout << "reading message" << endl;
 		memset(&msg[0], 0, sizeof(msg)); // Need to init to 0 so msg plays nice with strcmp
 		msg_len = recv(newsock,msg,255,0);
-		cout << "Finished reading message." << endl;
+		//cout << "Finished reading message." << endl;
 		cout << "msg: " << msg;
+		if (!binary_format && !strncmp(msg, "TYPE I", 6))
+		{
+			binary_format = true;
+			send(newsock, "200 binary mode engage!\r\n", sizeof("200 binary mode engage!\r\n"), 0);
+			continue;
+			//cout << sizeof("\r\n") << endl;
+		}
+		else if (!strncmp(msg, "TYPE A", 6))
+		{
+			binary_format = false;
+			send(newsock, "200 binary mode disengaged!\r\n", sizeof("200 binary mode disengaged!\r\n") - 1, 0);
+			continue;
+		}
+		/*else if (!binary_format)
+		{
+			send(newsock, "451 You aren't in Type I (image) mode!\r\n", sizeof("451 You aren't in Type I (image) mode!\r\n"), 0);
+			continue;
+		}*/
 		if (msg_len < 0)
 		{
 			cout << "Could not read from socket." << endl;
@@ -124,7 +143,7 @@ int main(int argc, char *argv[])
 			{
 				arg += msg[i];
 			}
-			cout << "CWD: " << arg << endl;
+			//cout << "CWD: " << arg << endl;
 			if (chdir(arg.c_str()) == 0) send(newsock, "250 CD Successful\n", sizeof("250 CD Successful\n"), 0);
 			else send(newsock, "550 Failed to change directory.\n", sizeof("550 Failed to change directory.\n"), 0);
 		}
@@ -178,7 +197,7 @@ int main(int argc, char *argv[])
 				j++;
 			}
 			data_port += atoi(port_str.c_str());
-			cout << data_port << endl;
+			//cout << data_port << endl;
 
 			// Establish data connection
 			client_sock = socket(AF_INET, SOCK_STREAM, 0);
@@ -203,7 +222,7 @@ int main(int argc, char *argv[])
 			{
 				cout << "Couldn't connect to the client." << endl;
 			}
-			cout << "Connected" << endl;
+			//cout << "Connected" << endl;
 
 			send(newsock, "200 PORT Successful\r\n", sizeof("200 PORT Successful\n"), 0);
 
@@ -217,17 +236,31 @@ int main(int argc, char *argv[])
 		}
 		else if (strncmp(msg, "STOR", 4) == 0)
 		{
-			send(newsock, "150 Ready to receive file\r\n", sizeof("150 Ready to receive file\r\n"), 0);
-			store(client_sock, msg);
-			close(client_sock);
-			send(newsock, "226 File received\r\n", sizeof("226 File received\r\n"), 0);
+			if (binary_format)
+			{
+				send(newsock, "150 Ready to receive file\r\n", sizeof("150 Ready to receive file\r\n"), 0);
+				store(client_sock, msg);
+				close(client_sock);
+				send(newsock, "226 File received\r\n", sizeof("226 File received\r\n"), 0);
+			}
+			else
+			{
+				send(newsock, "451 Not in Type I (image) mode!\r\n", sizeof("451 Not in Type I (image) mode!\r\n") - 1, 0);
+			}
 		}
 		else if (strncmp(msg, "RETR", 4) == 0)
 		{
-			send(newsock, "150 Sending file\r\n", sizeof("150 Sending file\r\n"), 0);
-			retrieve(client_sock, msg);
-			close(client_sock);
-			send(newsock, "226 File sent\r\n", sizeof("226 File sent\r\n"), 0);
+			if (binary_format)
+			{
+				send(newsock, "150 Sending file\r\n", sizeof("150 Sending file\r\n"), 0);
+				retrieve(client_sock, msg);
+				close(client_sock);
+				send(newsock, "226 File sent\r\n", sizeof("226 File sent\r\n"), 0);
+			}
+			else
+			{
+				send(newsock, "451 Not in Type I (image) mode!\r\n", sizeof("451 Not in Type I (image) mode!\r\n") - 1, 0);
+			}
 		}
 		else if (strncmp(msg, "DELE", 4) == 0)
 		{
@@ -244,8 +277,8 @@ int main(int argc, char *argv[])
 		}
 		else
 		{
-			cout << "Unsupported" << endl;
-			send(newsock, "200\r\n", strlen("200\r\n"), 0); // Don't support
+			//cout << "Unsupported" << endl;
+			send(newsock, "502 Command not implemented\r\n", strlen("502 Command not implemented\r\n") - 1, 0); // Don't support
 		}
 	} while (strncmp(msg,"QUIT", 4) != 0);
 	close(sock);
