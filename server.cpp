@@ -42,6 +42,7 @@ Changelog:
  	requirements as well as swapping back to TYPE A for LIST
  - April 30
  	Fixed some minor bugs.
+ 	Added ls(int client_sock, string msg)
  */
 #include <iostream>
 #include <stdio.h>
@@ -251,8 +252,12 @@ int main(int argc, char *argv[])
 		}
 		else if (strncmp(msg, "LIST", 4) == 0) // List current directory
 		{
+			string arg = "";
+			bool is_arg = 5 < strlen(msg) - 2;
 			send(newsock, "150 Sending info\r\n", sizeof("150 Sending info\r\n"), 0);
-			ls(client_sock);
+			if (is_arg) ls(client_sock, msg);
+			else ls(client_sock);
+			//ls(client_sock);
 			close(client_sock);
 			send(newsock, "226 LIST done\r\n", sizeof("226 LIST done\r\n"), 0);
 		}

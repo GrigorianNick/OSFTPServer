@@ -6,6 +6,7 @@ This file is responsible for handling data communication. (LIST STOR * RETR).
 
 Functions:
  - ls(int client_sock)					Lists current directory
+ - ls(int client_sock, string msg)		Lists directory specified by msg
  - parse_msg(string msg)				Extras the argument from a raw ftp
  										command
  - store(int client_sock,string msg)	Stores info coming over data connection
@@ -18,6 +19,7 @@ Changelog:
  	Created with retrieve, ls, parse_msg, and store functions.
  - April 30
  	Fixed some minor bugs.
+ 	Added ls(int client_sock, string msg)
  */
 
 #include <iostream>
@@ -31,19 +33,6 @@ Changelog:
 #include <fstream>
 
 using namespace std;
-
-void ls(int client_sock) // Open local directory, list all the entries
-{
-	DIR *dir_ptr;
-	dirent * dir_ent;
-	dir_ptr = opendir(".");
-	while ((dir_ent = readdir(dir_ptr)) != NULL)
-	{
-		send(client_sock, dir_ent->d_name, strlen(dir_ent->d_name), 0);
-		send(client_sock, "\r\n", sizeof("\r\n") - 1, 0);
-	}
-	closedir(dir_ptr);
-}
 
 string parse_msg(string msg) // Pulls the arguments out of a raw ftp message
 {
@@ -60,6 +49,34 @@ string parse_msg(string msg) // Pulls the arguments out of a raw ftp message
 		arg += msg[i];
 	}
 	return arg;
+}
+
+void ls(int client_sock) // Open local directory, list all the entries
+{
+	DIR *dir_ptr;
+	dirent * dir_ent;
+	dir_ptr = opendir(".");
+	while ((dir_ent = readdir(dir_ptr)) != NULL)
+	{
+		send(client_sock, dir_ent->d_name, strlen(dir_ent->d_name), 0);
+		send(client_sock, "\r\n", sizeof("\r\n") - 1, 0);
+	}
+	closedir(dir_ptr);
+}
+
+void ls(int client_sock, string msg) // Opens DIR specified by msg
+{
+	string arg = parse_msg(msg);
+	cout << "ls arg: " << arg << endl;
+	DIR *dir_ptr;
+	dirent * dir_ent;
+	dir_ptr = opendir(arg.c_str());
+	while ((dir_ent = readdir(dir_ptr)) != NULL)
+	{
+		send(client_sock, dir_ent->d_name, strlen(dir_ent->d_name), 0);
+		send(client_sock, "\r\n", sizeof("\r\n") - 1, 0);
+	}
+	closedir(dir_ptr);
 }
 
 void store(int client_sock, string msg) // Stores a file on the server by looping "recv a byte, write a byte"
