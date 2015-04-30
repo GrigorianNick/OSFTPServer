@@ -110,26 +110,18 @@ int main(int argc, char *argv[])
 			exit(1);
 		}
 		
-		if (strncmp(msg, "USER", 4) == 0) // Doesn't work..
+		if (strncmp(msg, "USER", 4) == 0)
 		{
-			return_status = 220; // Accecpt all USER logins
-			return_status = htons(return_status);
-			//send(newsock, "FTP 331\n", sizeof("FTP 331\n"), 0);
-			send(newsock, (char *)&return_status, sizeof(return_status), 0);
-			send(newsock, "\n", sizeof("\n"), 0);
-			//send(newsock, "Hai", sizeof("Hai"), 0);
-			cout << "Sent 331" << endl;
-			// Send welcome message
-			send(newsock, "Welcome to Elysium!", sizeof("Welcome to Elysium!"), 0);
-
+			send(newsock, "331 Need password (any will do)\r\n", sizeof("331 Need password (any will do)\r\n"), 0);
+		}
+		else if (strncmp(msg, "PASS", 4) == 0)
+		{
+			// We take all passwords because security lol
+			send(newsock, "230 Welcome to Elysium!\r\n", sizeof("230 Welcome to Elysium!\r\n"), 0);
 		}
 		else if (strncmp(msg, "SYST", 4) == 0)
 		{
-			cout << "Returning system type." << endl;
-			return_status = 215;
-			return_status = htons(return_status);
-			send(newsock, (char *)&return_status, sizeof(return_status), 0);
-			send(newsock, "Custom\n", sizeof("Custom\n"), 0);
+			send(newsock, "215 Custom\r\n", sizeof("215 Custom\r\n"), 0);
 		}
 		else if (strncmp(msg, "CDUP", 4) == 0)
 		{
@@ -246,6 +238,7 @@ int main(int argc, char *argv[])
 			else
 			{
 				send(newsock, "451 Not in Type I (image) mode!\r\n", sizeof("451 Not in Type I (image) mode!\r\n") - 1, 0);
+				close(client_sock);
 			}
 		}
 		else if (strncmp(msg, "RETR", 4) == 0)
@@ -260,6 +253,7 @@ int main(int argc, char *argv[])
 			else
 			{
 				send(newsock, "451 Not in Type I (image) mode!\r\n", sizeof("451 Not in Type I (image) mode!\r\n") - 1, 0);
+				close(client_sock);
 			}
 		}
 		else if (strncmp(msg, "DELE", 4) == 0)
