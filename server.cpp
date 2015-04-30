@@ -1,3 +1,48 @@
+/*
+
+Nicholas Grigorian - ngg3vm
+
+Under no circumstances should this be run as a serious ftp server. There is no
+security beyond the restrictions place on the user that started the server.
+
+This is the backbone of the server. This .cpp is responsible for establishing
+and closing all connections to the client machine. The dataflow is really
+simple: after the inital connection is established it enters a loop where
+messages are read. The first couple of characters are examined to figure out
+what the client wants, then the command is either executed or rejected.
+
+Commands that work:
+ - USER
+ - PASS
+ - LIST
+ - PORT
+ - CWD
+ - CDUP
+ - CDW
+ - DELE
+ - QUIT
+Commands that sorta work:
+ - SYST
+
+Changelog:
+
+ - April 24:
+ 	Got skeleton up and running. Msg loop works, client can connect. USER and
+ 	LIST aren't working.
+ - April 25
+ 	USER now works. PASS doesn't. Use `ftp -n <host> <port>` to connect
+ - April 26
+ 	PWD and CD family working. LIST is non-functional.
+ - April 27
+ 	Fixed QUIT, LIST a little less broken. Added a makefile.
+ - April 28
+ 	Fixed LIST .
+ - April 29
+ 	Added RETR and STOR functionality, created functions.h. Added TYPE I
+ 	requirements as well as swapping back to TYPE A for LIST
+ - April 30
+ 	Fixed some minor bugs.
+ */
 #include <iostream>
 #include <stdio.h>
 #include <sys/types.h>
@@ -57,14 +102,12 @@ int main(int argc, char *argv[])
 
 	// We now have a message.
 	client_len = sizeof(cli_addr);
-	//cout << "Accepcting socket." << endl;
 	newsock = accept(sock, (struct sockaddr *) &cli_addr, &client_len);
 	if (newsock < 0)
 	{
 		cout << "Could not accecpt." << endl;
 		exit(1);
 	}
-	//cout << "Accecpted socket." << endl;
 
 	printf("accepted a connection from client IP %s port %d \n",inet_ntoa(cli_addr.sin_addr),ntohs(serv_addr.sin_port));
 
@@ -76,59 +119,48 @@ int main(int argc, char *argv[])
 
 	// Enter read loop.
 	do {
-		// Wait for a new message
-		/*cout << "Listening..." << endl;
-		listen(newsock, 5);
-		cout << "Heard something!" << endl;*/
-		// We have a new message
-		//cout << "reading message" << endl;
 		memset(&msg[0], 0, sizeof(msg)); // Need to init to 0 so msg plays nice with strcmp
 		msg_len = recv(newsock,msg,255,0);
-		//cout << "Finished reading message." << endl;
-		cout << "msg: " << msg;
-		if (!binary_format && !strncmp(msg, "TYPE I", 6))
-		{
-			binary_format = true;
-			send(newsock, "200 binary mode engage!\r\n", sizeof("200 binary mode engage!\r\n"), 0);
-			continue;
-			//cout << sizeof("\r\n") << endl;
-		}
-		else if (!strncmp(msg, "TYPE A", 6))
-		{
-			binary_format = false;
-			send(newsock, "200 binary mode disengaged!\r\n", sizeof("200 binary mode disengaged!\r\n") - 1, 0);
-			continue;
-		}
-		/*else if (!binary_format)
-		{
-			send(newsock, "451 You aren't in Type I (image) mode!\r\n", sizeof("451 You aren't in Type I (image) mode!\r\n"), 0);
-			continue;
-		}*/
 		if (msg_len < 0)
 		{
 			cout << "Could not read from socket." << endl;
 			exit(1);
 		}
+
+		// We have a new message
+		cout << "msg: " << msg;
+		if (!binary_format && !strncmp(msg, "TYPE I", 6)) // Switching to binary mode
+		{
+			binary_format = true;
+			send(newsock, "200 binary mode engage!\r\n", sizeof("200 binary mode engage!\r\n"), 0);
+			continue;
+		}
+		else if (!strncmp(msg, "TYPE A", 6)) // Switching back to ASCII. Used for LIST
+		{
+			binary_format = false;
+			send(newsock, "200 binary mode disengaged!\r\n", sizeof("200 binary mode disengaged!\r\n") - 1, 0);
+			continue;
+		}
 		
-		if (strncmp(msg, "USER", 4) == 0)
+		if (strncmp(msg, "USER", 4) == 0) // They're trying to log in.
 		{
 			send(newsock, "331 Need password (any will do)\r\n", sizeof("331 Need password (any will do)\r\n"), 0);
 		}
-		else if (strncmp(msg, "PASS", 4) == 0)
+		else if (strncmp(msg, "PASS", 4) == 0) // They're sending us a password.
 		{
 			// We take all passwords because security lol
 			send(newsock, "230 Welcome to Elysium!\r\n", sizeof("230 Welcome to Elysium!\r\n"), 0);
 		}
-		else if (strncmp(msg, "SYST", 4) == 0)
+		else if (strncmp(msg, "SYST", 4) == 0) // The client's creeping on us
 		{
 			send(newsock, "215 Custom\r\n", sizeof("215 Custom\r\n"), 0);
 		}
-		else if (strncmp(msg, "CDUP", 4) == 0)
+		else if (strncmp(msg, "CDUP", 4) == 0) // Move up a directory by following ..
 		{
 			if (chdir("..") == 0) send(newsock, "250 CDUP Successful\n", sizeof("250 CDUP Successful\n"), 0);
 			else send(newsock, "550 Failed CDUP\n", sizeof("550 Failed CDUP\n"), 0);
 		}
-		else if (strncmp(msg, "CWD", 3) == 0)
+		else if (strncmp(msg, "CWD", 3) == 0) // Move around the directory structure
 		{
 			string arg = "";
 			for (int i = 4; i < strlen(msg) - 2; i++)
@@ -139,7 +171,7 @@ int main(int argc, char *argv[])
 			if (chdir(arg.c_str()) == 0) send(newsock, "250 CD Successful\n", sizeof("250 CD Successful\n"), 0);
 			else send(newsock, "550 Failed to change directory.\n", sizeof("550 Failed to change directory.\n"), 0);
 		}
-		else if (strncmp(msg, "PWD", 3) == 0)
+		else if (strncmp(msg, "PWD", 3) == 0) // Give them the current working directory
 		{
 			char cwd[1024];
 			bzero(cwd, 1024);
@@ -147,7 +179,7 @@ int main(int argc, char *argv[])
 			send(newsock, cwd, sizeof(cwd), 0);
 			send(newsock, "\n", sizeof("\n"), 0);
 		}
-		else if (strncmp(msg, "PORT", 4) == 0)
+		else if (strncmp(msg, "PORT", 4) == 0) // They're trying to initiate a data connection. Handled here because it's just easier.
 		{
 			// Interpret the ip and port
 			string arg = "",
@@ -189,7 +221,6 @@ int main(int argc, char *argv[])
 				j++;
 			}
 			data_port += atoi(port_str.c_str());
-			//cout << data_port << endl;
 
 			// Establish data connection
 			client_sock = socket(AF_INET, SOCK_STREAM, 0);
@@ -214,19 +245,18 @@ int main(int argc, char *argv[])
 			{
 				cout << "Couldn't connect to the client." << endl;
 			}
-			//cout << "Connected" << endl;
 
 			send(newsock, "200 PORT Successful\r\n", sizeof("200 PORT Successful\n"), 0);
 
 		}
-		else if (strncmp(msg, "LIST", 4) == 0)
+		else if (strncmp(msg, "LIST", 4) == 0) // List current directory
 		{
 			send(newsock, "150 Sending info\r\n", sizeof("150 Sending info\r\n"), 0);
 			ls(client_sock);
 			close(client_sock);
 			send(newsock, "226 LIST done\r\n", sizeof("226 LIST done\r\n"), 0);
 		}
-		else if (strncmp(msg, "STOR", 4) == 0)
+		else if (strncmp(msg, "STOR", 4) == 0) // Put a file on the server. Needs to be in binary mode to work.
 		{
 			if (binary_format)
 			{
@@ -238,10 +268,10 @@ int main(int argc, char *argv[])
 			else
 			{
 				send(newsock, "451 Not in Type I (image) mode!\r\n", sizeof("451 Not in Type I (image) mode!\r\n") - 1, 0);
-				close(client_sock);
+				close(client_sock); // Need to close socket so the client's data connection doesn't hang.
 			}
 		}
-		else if (strncmp(msg, "RETR", 4) == 0)
+		else if (strncmp(msg, "RETR", 4) == 0) // Put a file on the client. Needs to be in binary mode to work.
 		{
 			if (binary_format)
 			{
@@ -253,10 +283,10 @@ int main(int argc, char *argv[])
 			else
 			{
 				send(newsock, "451 Not in Type I (image) mode!\r\n", sizeof("451 Not in Type I (image) mode!\r\n") - 1, 0);
-				close(client_sock);
+				close(client_sock); // Need to close socket so the client's data connection doesn't hang.
 			}
 		}
-		else if (strncmp(msg, "DELE", 4) == 0)
+		else if (strncmp(msg, "DELE", 4) == 0) // Delete a file on the server. No extra permissions have been implemented for this.
 		{
 			string arg = "";
 			for (int i = 5; i < strlen(msg) - 2; i++) {
@@ -265,16 +295,17 @@ int main(int argc, char *argv[])
 			if (remove(arg.c_str()) == 0) send(newsock, "250 File deleted\n", sizeof("250 File deleted\n"), 0);
 			else send(newsock, "553 could not delete file\r\n", sizeof("553 could not delete file\r\n"), 0);
 		}
-		else if (strncmp(msg, "QUIT", 4) == 0)
+		else if (strncmp(msg, "QUIT", 4) == 0) // We're quitting out. Exit the loop so the sockets can be closed.
 		{
 			break;
 		}
-		else
+		else // They're trying to do something I don't support.
 		{
-			//cout << "Unsupported" << endl;
 			send(newsock, "502 Command not implemented\r\n", strlen("502 Command not implemented\r\n") - 1, 0); // Don't support
 		}
 	} while (strncmp(msg,"QUIT", 4) != 0);
+	// Clean up after ourselves.
 	close(sock);
 	close(newsock);
+	exit(0);
 }

@@ -1,3 +1,25 @@
+/*
+
+Nicholas Grigorian
+
+This file is responsible for handling data communication. (LIST STOR * RETR).
+
+Functions:
+ - ls(int client_sock)					Lists current directory
+ - parse_msg(string msg)				Extras the argument from a raw ftp
+ 										command
+ - store(int client_sock,string msg)	Stores info coming over data connection
+ 										in file designated by msg
+ - retrieve(int client_sock,string msg) Sends the file specified by msg over
+ 										the data connection.
+
+Changelog:
+ - April 29
+ 	Created with retrieve, ls, parse_msg, and store functions.
+ - April 30
+ 	Fixed some minor bugs.
+ */
+
 #include <iostream>
 #include <stdio.h>
 #include <stdlib.h>
@@ -10,11 +32,10 @@
 
 using namespace std;
 
-void ls(int client_sock)
+void ls(int client_sock) // Open local directory, list all the entries
 {
 	DIR *dir_ptr;
 	dirent * dir_ent;
-	//cout << "Starting to send directory!" << endl;
 	dir_ptr = opendir(".");
 	while ((dir_ent = readdir(dir_ptr)) != NULL)
 	{
@@ -22,10 +43,9 @@ void ls(int client_sock)
 		send(client_sock, "\r\n", sizeof("\r\n") - 1, 0);
 	}
 	closedir(dir_ptr);
-	//cout << "Done sending directory!" << endl;
 }
 
-string parse_msg(string msg)
+string parse_msg(string msg) // Pulls the arguments out of a raw ftp message
 {
 	int i = 0;
 	// Fast forward to the argument
@@ -33,7 +53,7 @@ string parse_msg(string msg)
 	{
 		i++;
 	}
-	i++;
+	i++; // Advance past the space
 	string arg = "";
 	for (; i < msg.length() - 2; i++)
 	{
@@ -42,12 +62,10 @@ string parse_msg(string msg)
 	return arg;
 }
 
-// Write store and retrieve functions
-void store(int client_sock, string msg)
+void store(int client_sock, string msg) // Stores a file on the server by looping "recv a byte, write a byte"
 {
 	string arg = parse_msg(msg);
 	FILE * file_ptr;
-	//file_ptr = fopen(arg.c_str(), "w");
 	file_ptr = fopen(arg.c_str(), "wb");
 	uint8_t byte;
 	while (recv(client_sock, &byte, sizeof(byte), 0) != 0)
@@ -57,7 +75,7 @@ void store(int client_sock, string msg)
 	fclose(file_ptr); // Uber important to flush everything to disk
 }
 
-void retrieve(int client_sock, string msg)
+void retrieve(int client_sock, string msg) // Opens up server file then loops "read a byte send a byte" until the file's done
 {
 	string arg = parse_msg(msg);
 	FILE * file_ptr;
