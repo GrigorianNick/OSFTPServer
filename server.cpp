@@ -302,13 +302,42 @@ int main(int argc, char *argv[])
 		}
 		else if (strncmp(msg, "QUIT", 4) == 0) // We're quitting out. Exit the loop so the sockets can be closed.
 		{
-			break;
+			bzero((char *) &serv_addr, sizeof(serv_addr));
+			// Voodoo lives here
+			serv_addr.sin_family = AF_INET;
+			serv_addr.sin_addr.s_addr = INADDR_ANY;
+			serv_addr.sin_port = htons(port);
+
+			// Try to bind the socket
+			if (bind(sock, (struct sockaddr *) &serv_addr, sizeof(serv_addr)) < 0)
+			{
+				cout << "Could not bind socket." << endl;
+				exit(1);
+			}
+			//cout << "starting to listen..." << endl;
+			// Socket binding success, now we enter the listen loop.
+			listen(sock,10); // Conga line!
+			//cout << "finished listening!" << endl;
+
+			// We now have a message.
+			client_len = sizeof(cli_addr);
+			newsock = accept(sock, (struct sockaddr *) &cli_addr, &client_len);
+			if (newsock < 0)
+			{
+				cout << "Could not accecpt." << endl;
+				exit(1);
+			}
+
+			printf("accepted a connection from client IP %s port %d \n",inet_ntoa(cli_addr.sin_addr),ntohs(serv_addr.sin_port));
+
+
+			send(newsock, "\n", sizeof("\n"), 0); // Magic.
 		}
 		else // They're trying to do something I don't support.
 		{
 			send(newsock, "502 Command not implemented\r\n", strlen("502 Command not implemented\r\n") - 1, 0); // Don't support
 		}
-	} while (strncmp(msg,"QUIT", 4) != 0);
+	} while (1);
 	// Clean up after ourselves.
 	close(sock);
 	close(newsock);
