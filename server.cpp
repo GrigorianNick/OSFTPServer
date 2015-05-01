@@ -302,19 +302,7 @@ int main(int argc, char *argv[])
 		}
 		else if (strncmp(msg, "QUIT", 4) == 0) // We're quitting out. Exit the loop so the sockets can be closed.
 		{
-			bzero((char *) &serv_addr, sizeof(serv_addr));
-			// Voodoo lives here
-			serv_addr.sin_family = AF_INET;
-			serv_addr.sin_addr.s_addr = INADDR_ANY;
-			serv_addr.sin_port = htons(port);
-
-			// Try to bind the socket
-			if (bind(sock, (struct sockaddr *) &serv_addr, sizeof(serv_addr)) < 0)
-			{
-				cout << "Could not bind socket." << endl;
-				exit(1);
-			}
-			//cout << "starting to listen..." << endl;
+			close(newsock);
 			// Socket binding success, now we enter the listen loop.
 			listen(sock,10); // Conga line!
 			//cout << "finished listening!" << endl;
